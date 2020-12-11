@@ -1,5 +1,5 @@
 package com.frc1678.subsystems;
 
-public class Climber {
+public class Climber extends Subsystem{
 
-}
+} 
