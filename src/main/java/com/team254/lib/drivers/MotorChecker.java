@@ -1,6 +1,6 @@
 package com.team254.lib.drivers;
 
-import com.team1678.frc2020.subsystems.Subsystem;
+import com.frc1678.subsystems.Subsystem;
 import com.team254.lib.util.Util;
 import edu.wpi.first.wpilibj.Timer;
 

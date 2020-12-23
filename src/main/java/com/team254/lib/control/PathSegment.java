@@ -1,6 +1,6 @@
 package com.team254.lib.control;
 
-import com.team1678.frc2020.Constants;
+import com.frc1678.Constants;
 import com.team254.lib.geometry.Rotation2d;
 import com.team254.lib.geometry.Translation2d;
 import com.team254.lib.motion.*;

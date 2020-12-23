@@ -3,53 +3,62 @@ package com.frc1678.subsystems;
 import com.frc1678.Constants;
 import com.frc1678.loops.ILooper;
 import com.frc1678.loops.Loop;
-import com.frc1678.Constants;
 
-import com.team254.lib.drivers.LazyTalonFX;
+import com.team254.lib.drivers.TalonSRXFactory;
 
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.Solenoid;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-
+import com.ctre.phoenix.motorcontrol.can.TalonSRX;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 
-public class BallIntake extends Subsystem {
-    private static double kIntakingVoltage = -12.0;
-    private static double kIdleVoltage = 0;
+import edu.wpi.first.wpilibj.Solenoid;
+import edu.wpi.first.wpilibj.Timer;
 
+public class BallIntake extends Subsystem {
+    // instance of this class
     private static BallIntake mInstance;
 
-    private Solenoid mDeploySolenoid;
+    public synchronized static BallIntake getInstance() {
+        if (mInstance == null) {
+            mInstance = new BallIntake();
+        }
+        return mInstance;
+    }
 
+    // ball intake goals
     public enum WantedAction {
         IDLE, INTAKE, OUTTAKE, SLOW_INTAKE,
     }
 
+    // ball intake state 
     public enum State {
         IDLE, INTAKING, OUTTAKING, SLOW_INTAKING,
     }
 
     private State mState = State.IDLE;
 
+    // periodic outputs
     private static PeriodicIO mPeriodicIO = new PeriodicIO();
-
-    private final LazyTalonFX mMaster = new LazyTalonFX(1);
-
     public static class PeriodicIO {
         // INPUTS
         public double timestamp;
-        public double current;
-
+        
         // OUTPUTS
         public double demand;
-        public boolean deploy;
+        public boolean intake_down;
     }
+
+    // intake soleniod
+    private final Solenoid mSolenoid;
     
-    public synchronized static BallIntake getInstance() {
-        if (mInstance == null) {
-            mInstance = new BallIntake();
-        }
-        return mInstance;
+    // intake motors
+    private final TalonSRX mMaster;
+    private final TalonSRX mSlave;
+
+    private BallIntake() {
+        mSolenoid = Constants.makeSolenoidForId(Constants.kBallIntakeSolenoidId);
+        mMaster = TalonSRXFactory.createDefaultTalon(Constants.kBallIntakeMasterId);
+        mMaster.set(ControlMode.PercentOutput, 0);
+        mSlave = TalonSRXFactory.createPermanentSlaveTalon(Constants.kBallIntakeSlaveId, Constants.kBallIntakeMasterId);
+        mSlave.follow(mMaster);
     }
 
     @Override
@@ -65,7 +74,6 @@ public class BallIntake extends Subsystem {
         enabledLooper.register(new Loop() {
             @Override
             public void onStart(double timestamp) {
-                // startLogging();
                 mState = State.IDLE;
             }
 
@@ -73,7 +81,6 @@ public class BallIntake extends Subsystem {
             public void onLoop(double timestamp) {
                 synchronized (BallIntake.this) {
                     runStateMachine();
-
                 }
             }
 
@@ -92,27 +99,29 @@ public class BallIntake extends Subsystem {
     public void runStateMachine() {
         switch (mState) {
         case INTAKING:
-                mPeriodicIO.demand = Constants.kIntakingVoltage;
-                mPeriodicIO.deploy = true;
+                mPeriodicIO.demand = Constants.kBallIntakingVoltage;
+                mPeriodicIO.intake_down = true;
             break;
         case OUTTAKING:
-                mPeriodicIO.demand = Constants.kOuttakingVoltage;
-                mPeriodicIO.deploy = false;
+                mPeriodicIO.demand = Constants.kBallOuttakingVoltage;
+                mPeriodicIO.intake_down = true;
             break;
         case SLOW_INTAKING:
-            mPeriodicIO.demand = Constants.kSlowIntakingVoltage;
-            mPeriodicIO.deploy = false;
+            mPeriodicIO.demand = Constants.kBallSlowIntakingVoltage;
+            mPeriodicIO.intake_down = true;
+            break;
         case IDLE:
-                mPeriodicIO.demand = Constants.kIdleVoltage;
+                mPeriodicIO.demand = Constants.kBallIdleVoltage;
+                mPeriodicIO.intake_down = false;
         }
-    }
-
-    public synchronized void setOpenLoop(double percentage) {
-        mPeriodicIO.demand = percentage;
     }
 
     public double getVoltage() {
         return mPeriodicIO.demand;
+    }
+
+    public boolean IsIntakeDown() {
+        return mPeriodicIO.intake_down;
     }
 
     public void setState(WantedAction wanted_state) {
@@ -130,16 +139,22 @@ public class BallIntake extends Subsystem {
             mState = State.IDLE;
             break;
         }
-
     }
 
     @Override
-    public synchronized void readPeriodicInputs() {}
+    public void readPeriodicInputs() {
+        mPeriodicIO.timestamp = Timer.getFPGATimestamp();
+    }
 
     @Override
     public void writePeriodicOutputs() {
-        mMaster.set(mPeriodicIO.demand / 12.0);
-        mDeploySolenoid.set(mPeriodicIO.deploy);
+        mSolenoid.set(mPeriodicIO.intake_down);
+        if (mPeriodicIO.intake_down) {
+            mMaster.set(ControlMode.PercentOutput, mPeriodicIO.demand / 12.0);
+        }
+        else {
+            mMaster.set(ControlMode.PercentOutput, 0);
+        }
     }
 
     @Override

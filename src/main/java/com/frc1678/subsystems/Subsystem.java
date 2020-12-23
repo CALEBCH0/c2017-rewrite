@@ -7,5 +7,6 @@ public abstract class Subsystem {
     public void readPeriodicInputs() {}
     public void registerEnabledLoops(ILooper mEnabledLooper) {}
     public void zeroSensors() {}
+    public abstract void stop();
     public abstract boolean checkSystem();
 }
